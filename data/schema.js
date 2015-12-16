@@ -75,24 +75,51 @@ let planetType = new GraphQLObjectType({
     surface_water: { type: GraphQLInt },
     population: { type: GraphQLInt },
     residents: {
-      type: new GraphQLList(personConnection),
+      type: personConnection,
       args: {
         ...connectionArgs
       },
       resolve: (obj, args) => {
-        console.log(obj.residents);
-        return connectionFromPromisedArray(() => {
-          return obj.residents.map((residentUrl) => {
-            var resident;
-            return new Promise(function(resolve, reject){
-              request(residentUrl, function(err, resp, body){
-                var resident = [JSON.parse(body)];
-                console.log('before resolve', resident);
-                resolve(resident);
-              });
-            });
-          });
-        }(), args);
+        return connectionFromPromisedArray(async function() {
+          // console.log(obj.residents.length);
+
+          var residentsArray = [];
+          // console.log('before for');
+          for (var i = 0; i < obj.residents.length; i++){
+            let residentUrl = obj.residents[i];
+            let resident = await function(){
+              var res;
+              return new Promise(function(resolve, reject){
+                request(residentUrl, function(err, resp, body){
+                  res = JSON.parse(body);
+                  // console.log('before resolve', res);
+                  resolve(res);
+                })
+              })
+            }()
+
+            residentsArray.push(resident);
+          }
+          console.log('residentsarray', residentsArray);
+          return residentsArray;
+        }()
+
+
+        //
+        //   var objArray = obj.residents.map((residentUrl) => {
+        //     var resident;
+        //     return new Promise(function(resolve, reject){
+        //       request(residentUrl, function(err, resp, body){
+        //         resident = [JSON.parse(body)];
+        //         // console.log('before resolve', resident);
+        //         resolve(resident);
+        //       });
+        //     });
+        //   });
+        //   console.log(objArray);
+        //   return objArray;
+        // }()
+        , args);
       }
     },
     // films: { type: GraphQLInt },
@@ -175,7 +202,7 @@ let queryType = new GraphQLObjectType({
     person: {
       type: personType,
       args: {
-        number: {type: GraphQLInt, required: true}
+        number: {type: new GraphQLNonNull(GraphQLInt)}
       },
       resolve: (_, {number}) => {
         var person;
@@ -191,7 +218,7 @@ let queryType = new GraphQLObjectType({
     planet: {
       type: planetType,
       args: {
-        number: {type: GraphQLInt, required: true}
+        number: {type: new GraphQLNonNull(GraphQLInt)}
       },
       resolve: (_, {number}) => {
         var planet;
@@ -204,9 +231,46 @@ let queryType = new GraphQLObjectType({
         })
       }
     },
+    people: {
+      type: new GraphQLList(personType),
+      resolve: async function() {
+        var done = false;
+        var allPeople = [];
+        var page;
+        while (done === false){
+          var {people, next} = await getPeoplePage(page);
+          allPeople = allPeople.concat(people);
+          if (!next){
+            done = true
+          } else {
+            page = next;
+          }
+        }
+        console.log('all people', allPeople);
+        return allPeople;
+      }
+    }
 
   })
 })
+
+
+function getPeoplePage(page) {
+  var people;
+  var next;
+
+  var url = page || "http://swapi.co/api/people/";
+
+  return new Promise(function(resolve, reject) {
+    request(url, function(error, response, body) {
+      var data = JSON.parse(body);
+      people = data.results;
+      next = data.next
+      resolve({people: people, next: next});
+    });
+  })
+}
+
 
 // let Schema = new GraphQLSchema({
 //   query: queryType

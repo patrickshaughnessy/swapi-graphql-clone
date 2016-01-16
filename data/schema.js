@@ -65,6 +65,10 @@ var {nodeInterface, nodeField} = nodeDefinitions(
 let planetType = new GraphQLObjectType({
   name: 'Planet',
   fields: () => ({
+    id: {
+      type: new GraphQLNonNull(GraphQLID),
+      resolve: (obj) => obj.url
+    },
     name: { type: GraphQLString },
     rotation_period: { type: GraphQLInt },
     orbital_period: { type: GraphQLInt },
@@ -127,13 +131,18 @@ let planetType = new GraphQLObjectType({
     created: { type: GraphQLString },
     edited: { type: GraphQLString },
     url: { type: GraphQLString },
-  })
+  }),
+  interfaces: [nodeInterface]
 })
 
 
 let personType = new GraphQLObjectType({
   name: 'Person',
   fields: () => ({
+    id: {
+      type: new GraphQLNonNull(GraphQLID),
+      resolve: (obj) => obj.url
+    },
     name: { type: GraphQLString },
     height: { type: GraphQLInt },
     mass: { type: GraphQLInt },
@@ -167,7 +176,8 @@ let personType = new GraphQLObjectType({
     created: { type: GraphQLString },
     edited: { type: GraphQLString },
     url: { type: GraphQLString },
-  })
+  }),
+  interfaces: [nodeInterface]
 })
 
 
@@ -232,25 +242,30 @@ let queryType = new GraphQLObjectType({
       }
     },
     people: {
-      type: new GraphQLList(personType),
-      resolve: async function() {
-        var done = false;
-        var allPeople = [];
-        var page;
-        while (done === false){
-          var {people, next} = await getPeoplePage(page);
-          allPeople = allPeople.concat(people);
-          if (!next){
-            done = true
-          } else {
-            page = next;
-          }
-        }
-        console.log('all people', allPeople);
-        return allPeople;
+      type: personConnection,
+      args: {
+        ...connectionArgs
+      },
+      resolve: (obj, args) => {
+        console.log(args);
+        return connectionFromPromisedArray(
+          async function() {
+            var done = false;
+            var allPeople = [];
+            var page;
+            while (done === false){
+              var {people, next} = await getPeoplePage(page);
+              allPeople = allPeople.concat(people);
+              if (!next){
+                done = true
+              } else {
+                page = next;
+              }
+            }
+            return allPeople;
+          }(), args)
       }
     }
-
   })
 })
 

@@ -1,1 +1,1 @@
-RECREATING THE SWAPI GRAPHIQL INTERFACE
+GraphQL endpoints for the Poke API

@@ -22,7 +22,6 @@ async () => {
   }
 }();
 
-console.log(Schema);
 // Save user readable type system shorthand of schema
 fs.writeFileSync(
   path.join(__dirname, '../data/schema.graphql'),
